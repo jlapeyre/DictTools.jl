@@ -6,14 +6,14 @@ Some tools to support Dict and Dictionary (and their abstract supertypes.)
 `_AbstractDict` is a `Union`. A few pirate methods are made so that their
 APIs are closer.
 
-Applications are `count_map`, `count_map!`, `update_map`, `update!`.
+Applications are `count_map`, `update_map`, `update!`.
 * `hist_to_dist`
-* `add_ncounts!`
+* `add_counts!`
 """
 module DictTools
 
 
-export count_map, count_map!, update!, baretype, baretypeof, add_ncounts!, hist_to_dist
+export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, hist_to_dist
 
 import Dictionaries
 using Dictionaries: AbstractDictionary, Dictionary, gettoken, gettokenvalue, settokenvalue!
@@ -42,13 +42,18 @@ Base.Dict(inds, vals) = Dict(zip(inds, vals))
     baretype(::Type{T})
 
 Return the typename of `T`. This will fail for some input. In particular,
-and in general, if `T` is a `UnionAll` type. However, more robust methods
+and in general, if `T` is a `UnionAll` type. However, more robust methods for `baretype`
 are defined for `Dict` and `Dictionary`.
 """
 baretype(::Type{T}) where {T} = isempty(T.parameters) ? T : T.name.wrapper
 baretype(::Type{<:Dict}) = Dict
 baretype(::Type{<:Dictionary}) = Dictionary
 
+"""
+    baretypeof(x)
+
+Return the typename of the type of object `x`. That is, return `baretype(typeof(x))`.
+"""
 baretypeof(x) = baretype(typeof(x))
 
 _insert!(d::AbstractDict, k, v) = (d[k] = v)
@@ -58,6 +63,14 @@ _insert!(d::Dictionaries.AbstractDictionary, k, v) = Dictionaries.insert!(d, k, 
 # They may be actually collected elsewhere.
 
 # The parameter `F` is actually necessary to force specialization
+"""
+    update!(dict::Union{Dict,Dictionary}, _key, func, default)
+
+If `dict` has key `_key`, replace the value by the result of calling `func` on the value.
+Otherwise insert `default` for `_key`.
+
+This function may work if `dict` is some other `_AbstractDict`.
+"""
 @inline function update!(dict::AbstractDictionary{T, V}, _key::T, func::F, default) where {F, T, V}
     (hasval, token) = gettoken(dict, _key)
     if hasval
@@ -95,6 +108,12 @@ end
 
 update_map(_keys, func::F, default) where F = update_map(Dictionary, _keys, func, default)
 
+"""
+    update_map(::Type{T}=Dictionary, _keys, func, default)
+
+Like `count_map`, but instead of incrementing an existing value by one, it is replaced
+by the result of calling `func` on it. Furthermore, the default is `default` rather than `1`.
+"""
 update_map(::Type{DictT}, _keys, func::F, default) where {F, DictT} =
     update!(DictT{typeof(first(_keys)), typeof(default)}(), _keys, func, default)
 
@@ -111,17 +130,19 @@ internally.
 count_map(args...) = update_map(args..., v -> (v + 1), 1)
 
 """
-    count_map!(dict, itr)
+    add_counts!(dict::_AbstractDict{<:Any,V}, itr, ncounts=one(V)) where V
 
-Add items in `itr` to the count map `dict`. `itr` is any iterable,
-including single iterable items, like numbers.
+Add `ncounts` counts to `dict` for each key in `itr`. If `ncounts` is ommited,
+add one count for each key.
 """
-@inline count_map!(dict::_AbstractDict{<:Any,V}, _key) where {V} =
-    update!(dict, _key, v -> (v + one(V))::V, one(V))
-
-function add_ncounts!(dict::_AbstractDict{<:Any,V}, _key, ncounts) where V
-    update!(dict, _key, v -> (v + V(ncounts)), V(ncounts))
+function add_counts!(dict::_AbstractDict{<:Any,V}, itr, ncounts) where V
+    update!(dict, itr, v -> (v + V(ncounts)), V(ncounts))
 end
+
+# Separating this seems slightly more efficient than using default value above. This should not
+# be the case.
+add_counts!(dict::_AbstractDict{<:Any,V}, itr) where {V} =
+    update!(dict, itr, v -> (v + one(V))::V, one(V))
 
 """
     hist_to_dist(dict)
