@@ -99,8 +99,8 @@ end
     end
 end
 
-function update!(dict::_AbstractDict, _keys, func::F, default) where F
-    for _key in _keys
+function update!(dict::_AbstractDict{T}, _keys, func::F, default) where {F, T}
+    for _key::T in _keys
         update!(dict, _key, func, default)
     end
     return dict
