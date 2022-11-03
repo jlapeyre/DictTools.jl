@@ -5,7 +5,7 @@
 
 ### `count_map`
 
-One main feature of this package is `count_map`. For example `count_map(itr)` returns a `Dictionary` counting
+The main feature of this package is `count_map`. For example `count_map(itr)` returns a `Dictionary` counting
 the number of times each item in `itr` occurs.
 
 It differs from the one in `StatsBase` in a few ways.
@@ -19,7 +19,7 @@ It differs from the one in `StatsBase` in a few ways.
 
 Some tools to support `Dict` and `Dictionary` (and their abstract supertypes.)
 
-We have defined `_AbstractDict{T, V} = Union{AbstractDict{T,V}, AbstractDictionary{T,V}}`.
+We defined `_AbstractDict{T, V} = Union{AbstractDict{T,V}, AbstractDictionary{T,V}}`.
 
 To make the interfaces more compatible we define the pirate method `Base.Dict(inds, vals) = Dict(zip(inds, vals))`.
 
@@ -35,29 +35,6 @@ docstrings may be more up to date.
 
     Either a `Dict` or a `Dictionary`. A union type
 
-*  `baretype(::Type{T})`
-
-    Return the typename of `T`. This will fail for some input. In particular,
-    and in general, if `T` is a `UnionAll` type. However, more robust methods for `baretype`
-    are defined for `Dict` and `Dictionary`.
-
-*  `baretypeof(x)`
-
-    Return the typename of the type of object `x`. That is, return `baretype(typeof(x))`.
-
-
-*  `update!(dict::Union{Dict,Dictionary}, _key, func, default)`
-
-    If `dict` has key `_key`, replace the value by the result of calling `func` on the value.
-    Otherwise insert `default` for `_key`.
-
-    This function may work if `dict` is some other `_AbstractDict`.
-
-*  `update_map(::Type{T}=Dictionary, _keys, func, default)`
-
-    Like `count_map`, but instead of incrementing an existing value by one, it is replaced
-    by the result of calling `func` on it. Furthermore, the default is `default` rather than `1`.
-
 * `count_map([::Type{T}=Dictionary], itr)`
 
     Return a dictionary of type `T` whose keys are elements of `itr`
@@ -71,6 +48,28 @@ docstrings may be more up to date.
 
     Add `ncounts` counts to `dict` for each key in `itr`. If `ncounts` is ommited,
     add one count for each key.
+
+*  `update!(dict::Union{Dict,Dictionary}, _key, func, default)`
+
+    If `dict` has key `_key`, replace the value by the result of calling `func` on the value.
+    Otherwise insert `default` for `_key`.
+
+    This function may work if `dict` is some other `_AbstractDict`.
+
+*  `update_map(::Type{T}=Dictionary, _keys, func, default)`
+
+    Like `count_map`, but instead of incrementing an existing value by one, it is replaced
+    by the result of calling `func` on it. Furthermore, the default is `default` rather than `1`.
+
+*  `baretype(::Type{T})`
+
+    Return the typename of `T`. This will fail for some input. In particular,
+    and in general, if `T` is a `UnionAll` type. However, more robust methods for `baretype`
+    are defined for `Dict` and `Dictionary`.
+
+*  `baretypeof(x)`
+
+    Return the typename of the type of object `x`. That is, return `baretype(typeof(x))`.
 
 *  `hist_to_dist(dict)`
 
