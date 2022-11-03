@@ -56,8 +56,17 @@ Return the typename of the type of object `x`. That is, return `baretype(typeof(
 """
 baretypeof(x) = baretype(typeof(x))
 
-_insert!(d::AbstractDict, k, v) = (d[k] = v)
+### Common interface for common functions for Dict, Dictionaries, AbstractVector
+
+_insert!(d::Union{AbstractDict, AbstractVector}, k, v) = (d[k] = v)
 _insert!(d::Dictionaries.AbstractDictionary, k, v) = Dictionaries.insert!(d, k, v)
+
+_set!(d::Union{AbstractDict, AbstractVector}, k, v) = (d[k] = v)
+_set!(d::Dictionaries.AbstractDictionary, k, v) = Dictionaries.set!(d, k, v)
+
+# Maybe don't need to use this. Prefer using values at call site ?
+_sum(d::Union{AbstractDict, AbstractVector}, args...) = sum(d, args...)
+_sum(d::AbstractDict, args...) = sum(values(d), args...)
 
 # These functions should be collected elsewhere.
 # They may be actually collected elsewhere.
