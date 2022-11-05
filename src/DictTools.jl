@@ -12,7 +12,7 @@ Applications are `count_map`, `update_map`, `update!`.
 """
 module DictTools
 
-export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, normalize
+export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, normalize, _convert
 
 import Dictionaries
 using Dictionaries: AbstractDictionary, Dictionary, gettoken, gettokenvalue, settokenvalue!
@@ -252,5 +252,24 @@ If the normalized value cannot be converted to the value type of `container`, an
 For example if `valtype(container)` is `Int`, an `InexactError` will be thrown.
 """
 normalize!(container) = normalize!(container, container)
+
+"""
+    _convert(::Type{<:Vector}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V}
+
+Convert `d` to a `Vector`. Missing keys in `d` are set to `neutral_element` in the returned vector.
+"""
+function _convert(::Type{VT}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V, VT<:Vector}
+    vec = VT(undef, maximum(keys(d)))
+    fill!(vec, neutral_element)
+    for (k, v) in pairs(d)
+        vec[k] = v
+    end
+    return vec
+end
+
+function _convert(::Type{Vector}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V}
+    return _convert(Vector{V}, d, neutral_element)
+end
+
 
 end # module DictTools

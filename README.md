@@ -23,6 +23,9 @@ We defined `_AbstractDict{T, V} = Union{AbstractDict{T,V}, AbstractDictionary{T,
 
 To make the interfaces more compatible we define the pirate method `Base.Dict(inds, vals) = Dict(zip(inds, vals))`.
 
+In general, it is often not worth the trouble to support both `Dict` and `Dictionary` with a single interface.
+But, sometimes it is, and these tools can be useful.
+
 ### Exported functions and objects
 
 docstrings may be more up to date.
