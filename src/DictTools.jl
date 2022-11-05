@@ -12,8 +12,7 @@ Applications are `count_map`, `update_map`, `update!`.
 """
 module DictTools
 
-
-export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, hist_to_dist
+export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, normalize
 
 import Dictionaries
 using Dictionaries: AbstractDictionary, Dictionary, gettoken, gettokenvalue, settokenvalue!
@@ -26,6 +25,13 @@ using Dictionaries: AbstractDictionary, Dictionary, gettoken, gettokenvalue, set
 Either an `AbstractDict` or an `AbstractDictionary`. A union type
 """
 const _AbstractDict{T, V} = Union{AbstractDict{T,V}, AbstractDictionary{T,V}}
+
+"""
+    _AbstractDictOrVector{V}
+
+Either an `_AbstractDict` of `AbstractVector` with key type `V`.
+"""
+const _AbstractDictOrVector{V} = Union{_AbstractDict{<:Any, V}, AbstractVector{V}}
 
 """
     _Dict{T, V}
@@ -41,6 +47,7 @@ Base.Dict(inds, vals) = Dict(zip(inds, vals))
 """
     baretype(::Type{T})
 
+Note: There are better solutions than `baretype` for many (perhaps all) use cases.
 Return the typename of `T`. This will fail for some input. In particular,
 and in general, if `T` is a `UnionAll` type. However, more robust methods for `baretype`
 are defined for `Dict` and `Dictionary`.
@@ -49,6 +56,7 @@ baretype(::Type{T}) where {T} = isempty(T.parameters) ? T : T.name.wrapper
 baretype(::Type{<:Dict}) = Dict
 baretype(::Type{<:Dictionary}) = Dictionary
 
+# TODO: Use empty, similar, etc. instead of this.
 """
     baretypeof(x)
 
@@ -58,11 +66,41 @@ baretypeof(x) = baretype(typeof(x))
 
 ### Common interface for common functions for Dict, Dictionaries, AbstractVector
 
-_insert!(d::Union{AbstractDict, AbstractVector}, k, v) = (d[k] = v)
+"""
+    _insert!(d::Union{_AbstractDict, AbstractVector}, k, v)
+
+Insert the key value pair (`k`, `v`) in `d`. For `Dictionary`, this calls
+`insert!`. Otherwise, it calls `setindex!.
+"""
+_insert!(d::AbstractDict, k, v) = (d[k] = v)
+function _insert!(d::AbstractVector, k, v)
+    @boundscheck checkbounds(d, k)
+    @inbounds d[k] = v
+end
+
 _insert!(d::Dictionaries.AbstractDictionary, k, v) = Dictionaries.insert!(d, k, v)
 
-_set!(d::Union{AbstractDict, AbstractVector}, k, v) = (d[k] = v)
+"""
+    _set!(d::Union{_AbstractDict, AbstractVector}, k, v)
+
+Set the key value pair (`k`, `v`) in `d`.
+"""
+_set!(d::AbstractDict, k, v) = (d[k] = v)
+function _set!(d::AbstractVector, k, v)
+    @boundscheck checkbounds(d, k)
+    @inbounds d[k] = v
+end
+
 _set!(d::Dictionaries.AbstractDictionary, k, v) = Dictionaries.set!(d, k, v)
+
+"""
+    empty_or_similar(d::Union{_AbstractDict, AbstractVector}, ::Type{KeyT}, ::Type{ValT})
+
+For dictionaries call `empty`. For `AbstractVector` call similar. They key type for
+`AbstractVector` must be `Int.
+"""
+empty_or_similar(d::_AbstractDict, ::Type{KeyT}, ::Type{ValT}) where {KeyT, ValT} = empty(d, KeyT, ValT)
+empty_or_similar(d::AbstractVector, ::Type{Int}, ::Type{ValT}) where {ValT} = similar(d, ValT)
 
 # Maybe don't need to use this. Prefer using values at call site ?
 _sum(d::Union{AbstractDict, AbstractVector}, args...) = sum(d, args...)
@@ -73,12 +111,12 @@ _sum(d::AbstractDict, args...) = sum(values(d), args...)
 
 # The parameter `F` is actually necessary to force specialization
 """
-    update!(dict::Union{Dict,Dictionary}, _key, func, default)
+    update!(dict::_AbstractDict, _key, func, default)
 
 If `dict` has key `_key`, replace the value by the result of calling `func` on the value.
 Otherwise insert `default` for `_key`.
 
-This function may work if `dict` is some other `_AbstractDict`.
+This function supports some subtypes of `_AbstractDict`.
 """
 @inline function update!(dict::AbstractDictionary{T, V}, _key::T, func::F, default) where {F, T, V}
     (hasval, token) = gettoken(dict, _key)
@@ -115,10 +153,33 @@ function update!(dict::_AbstractDict{T}, _keys, func::F, default) where {F, T}
     return dict
 end
 
+"""
+    update!(v::AbstractVector, _key::Int, func, _ignore=nothing)
+
+Update the value of `v` at index `_key` by calling `func` on it. That is,
+set `v[_key] = func(v[_key])`.
+"""
+function update!(v::AbstractVector{V}, _key::Int, func::F, _ignore=nothing) where {F, V}
+    @boundscheck checkbounds(v, _key)
+    @inbounds v[_key] = func(v[_key])
+end
+
+"""
+    update!(v::AbstractVector, _keys, func, _ignore=nothing)
+
+Call `update!(v, k, func)` for each `k::Int` in iterable `_keys`.
+"""
+function update!(v::AbstractVector{V}, _keys, func::F, _ignore=nothing) where {F, V}
+    for k::Int in _keys
+        update!(v, k, func, _ignore)
+    end
+    return v
+end
+
 update_map(_keys, func::F, default) where F = update_map(Dictionary, _keys, func, default)
 
 """
-    update_map(::Type{T}=Dictionary, _keys, func, default)
+    update_map(::Type{T}=_AbstractDict, _keys, func, default)
 
 Like `count_map`, but instead of incrementing an existing value by one, it is replaced
 by the result of calling `func` on it. Furthermore, the default is `default` rather than `1`.
@@ -126,8 +187,9 @@ by the result of calling `func` on it. Furthermore, the default is `default` rat
 update_map(::Type{DictT}, _keys, func::F, default) where {F, DictT} =
     update!(DictT{typeof(first(_keys)), typeof(default)}(), _keys, func, default)
 
+
 """
-    count_map([::Type{T}=Dictionary], itr)
+    count_map([::Type{T}=_AbstractDict], itr)
 
 Return a dictionary of type `T` whose keys are elements of `itr`
 and whose values count how many times each occurs.
@@ -139,28 +201,56 @@ internally.
 count_map(args...) = update_map(args..., v -> (v + 1), 1)
 
 """
-    add_counts!(dict::_AbstractDict{<:Any,V}, itr, ncounts=one(V)) where V
+    add_counts!(counter::Union{_AbstractDict{<:Any,V}, AbstractVector{V}}, itr, ncounts=one(V)) where V
 
-Add `ncounts` counts to `dict` for each key in `itr`. If `ncounts` is ommited,
+Add `ncounts` counts to `counter` for each key in `itr`. If `ncounts` is ommited,
 add one count for each key.
+
+If `counter` is an `AbstractVector`, then `itr` must produce `Int` indices into `counter`.
 """
-function add_counts!(dict::_AbstractDict{<:Any,V}, itr, ncounts) where V
-    update!(dict, itr, v -> (v + V(ncounts)), V(ncounts))
+function add_counts!(counter::_AbstractDictOrVector{V}, itr, ncounts) where V
+    update!(counter, itr, v -> (v + V(ncounts)), V(ncounts))
 end
 
-# Separating this seems slightly more efficient than using default value above. This should not
-# be the case.
-add_counts!(dict::_AbstractDict{<:Any,V}, itr) where {V} =
-    update!(dict, itr, v -> (v + one(V))::V, one(V))
+# Separating this seems slightly more efficient than using default value above.
+# This should not be the case.
+add_counts!(counter::_AbstractDictOrVector{V}, itr) where {V} =
+    update!(counter, itr, v -> (v + one(V))::V, one(V))
 
 """
-    hist_to_dist(dict)
+    normalize(container::Union{_AbstractDict, AbstractVector})
 
-Convert the histogram `dict` to a probability distribution.
-
-`dict` is a dictionary of counts. The output is a dictionary
-with the same keys, and counts normalized to a probability distribution.
+Return a container similar to `container` but with values normalized so that they sum to one.
+This can be used to convert a histogram (count map) to a probability distribution.
 """
-hist_to_dist(dict) = baretypeof(dict)(keys(dict), values(dict) ./ sum(values(dict)))
+function normalize(container)
+    VT = valtype(container)
+    DT = Base.promote_op(/, VT, Base.promote_op(+, VT, VT))
+    return normalize!(empty_or_similar(container, keytype(container), DT), container)
+end
+
+"""
+    normalize!(dest, src)
+
+Normalize `src`, writing the result to `dest`.
+Both `dest` and `src` are of type `Union{_AbstractDict, AbstractVector}`.
+"""
+function normalize!(dest, src)
+    _sum = sum(values(src))
+    for (k, v) in pairs(src)
+        _set!(dest, k, v / _sum)
+    end
+    return dest
+end
+
+"""
+    normalize!(container::Union{_AbstractDict, AbstractVector})
+
+Normalize `container` in place.
+
+If the normalized value cannot be converted to the value type of `container`, an error, such as `InexactError` will be thrown.
+For example if `valtype(container)` is `Int`, an `InexactError` will be thrown.
+"""
+normalize!(container) = normalize!(container, container)
 
 end # module DictTools

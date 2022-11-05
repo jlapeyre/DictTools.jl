@@ -44,6 +44,7 @@ docstrings may be more up to date.
     integers and that `itr` of indetermiate length is first collected
     internally.
 
+
 *  `add_counts!(dict::_AbstractDict{<:Any,V}, itr, ncounts=one(V)) where V`
 
     Add `ncounts` counts to `dict` for each key in `itr`. If `ncounts` is ommited,
@@ -56,22 +57,14 @@ docstrings may be more up to date.
 
     This function may work if `dict` is some other `_AbstractDict`.
 
+In addition to dictionaries, `update!` and `add_counts!` also accept (some) `AbstractVector` types
+
 *  `update_map(::Type{T}=Dictionary, _keys, func, default)`
 
     Like `count_map`, but instead of incrementing an existing value by one, it is replaced
     by the result of calling `func` on it. Furthermore, the default is `default` rather than `1`.
 
-*  `baretype(::Type{T})`
+*  `DictTools.normalize(dict)`
 
-    Return the typename of `T`. This will fail for some input. In particular,
-    and in general, if `T` is a `UnionAll` type. However, more robust methods for `baretype`
-    are defined for `Dict` and `Dictionary`.
+    `dict` is a dictionary of counts. The output is a dictionary with the same keys, and counts normalized to a probability distribution.
 
-*  `baretypeof(x)`
-
-    Return the typename of the type of object `x`. That is, return `baretype(typeof(x))`.
-
-*  `hist_to_dist(dict)`
-
-    `dict` is a dictionary of counts. The output is a dictionary
-    with the same keys, and counts normalized to a probability distribution.

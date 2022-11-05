@@ -9,7 +9,7 @@ using Test
     @test cm == exp_cm
     @test count_map(tuple(items...)) == exp_cm
     @test count_map((x for x in items)) == exp_cm
-    @test hist_to_dist(cm) == Dictionary([0,1,2], [0.4, 0.4, 0.2])
+    @test normalize(cm) == Dictionary([0,1,2], [0.4, 0.4, 0.2])
 
     add_counts!(cm, [0, 1, 2])
     @test cm == Dictionary([0, 1, 2], [3, 3, 2])
