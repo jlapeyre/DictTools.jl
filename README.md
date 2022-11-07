@@ -21,7 +21,9 @@ Some tools to support `Dict` and `Dictionary` (and their abstract supertypes.)
 
 We defined `_AbstractDict{T, V} = Union{AbstractDict{T,V}, AbstractDictionary{T,V}}`.
 
-To make the interfaces more compatible we define the pirate method `Base.Dict(inds, vals) = Dict(zip(inds, vals))`.
+To make the interfaces more compatible one *could* define the pirate method `Base.Dict(inds, vals) = Dict(zip(inds, vals))`.
+But instead `DictTools` defines `construct(::Type{T<:_AbstractDict}, inds, vals)` which provides a common interface for
+construction.
 
 In general, it is often not worth the trouble to support both `Dict` and `Dictionary` with a single interface.
 But, sometimes it is, and these tools can be useful.

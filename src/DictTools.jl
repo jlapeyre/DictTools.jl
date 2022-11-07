@@ -12,7 +12,8 @@ Applications are `count_map`, `update_map`, `update!`.
 """
 module DictTools
 
-export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, normalize, _convert
+export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, normalize, _convert,
+    construct
 
 import Dictionaries
 using Dictionaries: AbstractDictionary, Dictionary, gettoken, gettokenvalue, settokenvalue!
@@ -38,10 +39,21 @@ const _AbstractDictOrVector{V} = Union{_AbstractDict{<:Any, V}, AbstractVector{V
 
 Either a `Dict` or a `Dictionary`. A union type
 """
-const _Dict{T, V} = Union{Dict{T,V}, Dictionary{T,V}} # TODO: paramaterize
+const _Dict{T, V} = Union{Dict{T,V}, Dictionary{T,V}}
 
 # Type piracy to give Dict the same construction interface as Dictionary
-Base.Dict(inds, vals) = Dict(zip(inds, vals))
+# Base.Dict(inds, vals) = Dict(zip(inds, vals))
+
+"""
+    construct(::Type{T<:_AbstractDict}, inds, vals)
+
+Construct either an `AbstractDict` or `AbstractDictionary` from `inds` and `vals`.
+
+This is intended to give a common interface. It would be more convenient to commit type piracy with
+`Base.Dict(inds, vals) = Dict(zip(inds, vals))`.
+"""
+construct(::Type{T}, inds, vals) where {T<:AbstractDict} = T(zip(inds, vals))
+construct(::Type{T}, inds, vals) where {T<:AbstractDictionary} = T(inds, vals)
 
 # TODO: Some examples would make this more clear
 """
@@ -212,8 +224,8 @@ function add_counts!(counter::_AbstractDictOrVector{V}, itr, ncounts) where V
     update!(counter, itr, v -> (v + V(ncounts)), V(ncounts))
 end
 
-# Separating this seems slightly more efficient than using default value above.
-# This should not be the case.
+# Separating this seems slightly more efficient than using a default value for
+# counts above. This should not be the case.
 add_counts!(counter::_AbstractDictOrVector{V}, itr) where {V} =
     update!(counter, itr, v -> (v + one(V))::V, one(V))
 
@@ -236,9 +248,9 @@ Normalize `src`, writing the result to `dest`.
 Both `dest` and `src` are of type `Union{_AbstractDict, AbstractVector}`.
 """
 function normalize!(dest, src)
-    _sum = sum(values(src))
+    thesum = sum(values(src))
     for (k, v) in pairs(src)
-        _set!(dest, k, v / _sum)
+        _set!(dest, k, v / thesum)
     end
     return dest
 end
@@ -257,6 +269,8 @@ normalize!(container) = normalize!(container, container)
     _convert(::Type{<:Vector}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V}
 
 Convert `d` to a `Vector`. Missing keys in `d` are set to `neutral_element` in the returned vector.
+
+This essentially converts a sparse representation to a dense representation.
 """
 function _convert(::Type{VT}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V, VT<:Vector}
     vec = VT(undef, maximum(keys(d)))
@@ -267,9 +281,7 @@ function _convert(::Type{VT}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) 
     return vec
 end
 
-function _convert(::Type{Vector}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V}
-    return _convert(Vector{V}, d, neutral_element)
-end
-
+_convert(::Type{Vector}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V} =
+    _convert(Vector{V}, d, neutral_element)
 
 end # module DictTools
