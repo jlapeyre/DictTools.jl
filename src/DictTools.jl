@@ -17,6 +17,7 @@ export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_co
 
 import Dictionaries
 using Dictionaries: AbstractDictionary, Dictionary, gettoken, gettokenvalue, settokenvalue!
+import ZChop
 
 # Add a layer to handle both kinds of dictionaries
 
@@ -283,5 +284,11 @@ end
 
 _convert(::Type{Vector}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V} =
     _convert(Vector{V}, d, neutral_element)
+
+
+function ZChop.applyf!(func, dict::Dictionary, args...; kwargs...)
+    ZChop.applyf!(func, dict.values, args...; kwargs...)
+    return dict
+end
 
 end # module DictTools
