@@ -109,10 +109,11 @@ _set!(d::Dictionaries.AbstractDictionary, k, v) = Dictionaries.set!(d, k, v)
 """
     empty_or_similar(d::Union{_AbstractDict, AbstractVector}, ::Type{KeyT}, ::Type{ValT})
 
-For dictionaries call `empty`. For `AbstractVector` call similar. They key type for
+For `Dict` call `empty`. For `AbstractVector` and `Dictionary` call similar. They key type for
 `AbstractVector` must be `Int.
 """
-empty_or_similar(d::_AbstractDict, ::Type{KeyT}, ::Type{ValT}) where {KeyT, ValT} = empty(d, KeyT, ValT)
+empty_or_similar(d::AbstractDict, ::Type{KeyT}, ::Type{ValT}) where {KeyT, ValT} = empty(d, KeyT, ValT)
+empty_or_similar(d::AbstractDictionary{KeyT, ValT}, ::Type{KeyT}, ::Type{ValT}) where {KeyT, ValT} = similar(d)
 empty_or_similar(d::AbstractVector, ::Type{Int}, ::Type{ValT}) where {ValT} = similar(d, ValT)
 
 # Maybe don't need to use this. Prefer using values at call site ?
@@ -230,6 +231,7 @@ end
 add_counts!(counter::_AbstractDictOrVector{V}, itr) where {V} =
     update!(counter, itr, v -> (v + one(V))::V, one(V))
 
+# TODO: container::Dictionary is much slower than it should be.
 """
     normalize(container::Union{_AbstractDict, AbstractVector})
 
@@ -237,11 +239,30 @@ Return a container similar to `container` but with values normalized so that the
 This can be used to convert a histogram (count map) to a probability distribution.
 """
 function normalize(container)
-    VT = valtype(container)
-    DT = Base.promote_op(/, VT, Base.promote_op(+, VT, VT))
-    return normalize!(empty_or_similar(container, keytype(container), DT), container)
+    ValueT = valtype(container)
+    DataT = Base.promote_op(/, ValueT, Base.promote_op(+, ValueT, ValueT))
+    return _normalize!(empty_or_similar(container, keytype(container), DataT), container)
 end
 
+_normalize!(dest, src) = normalize!(dest, src)
+
+function _normalize!(dest::Dictionary, src::Dictionary)
+    thesum = sum(values(src))
+    for i in eachindex(src.values)
+        @inbounds dest.values[i] = src.values[i] / thesum
+    end
+    return dest
+end
+
+"""
+    normalize!(d::Dictionary)
+
+Normalize `d` in place. That is, scale the values of `d` so that they sum
+to one.
+"""
+normalize!(d::Dictionary) = _normalize!(d, d)
+
+# TODO: for Vectors normalize!(v, v) is too slow
 """
     normalize!(dest, src)
 
@@ -250,8 +271,8 @@ Both `dest` and `src` are of type `Union{_AbstractDict, AbstractVector}`.
 """
 function normalize!(dest, src)
     thesum = sum(values(src))
-    for (k, v) in pairs(src)
-        _set!(dest, k, v / thesum)
+    for (k, v) in pairs(src) # @inbounds important for Vectors
+        @inbounds _set!(dest, k, v / thesum)
     end
     return dest
 end
