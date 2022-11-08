@@ -18,19 +18,18 @@ It differs from the one in `StatsBase` in a few ways.
 ### Common interface to `Dict` and `Dictionary`
 
 Some tools to support `Dict` and `Dictionary` (and their abstract supertypes.)
+In general, it is often not worth the trouble to support both `Dict` and `Dictionary` with a single interface.
+But, sometimes it is, and these tools can be useful.
 
 We defined `_AbstractDict{T, V} = Union{AbstractDict{T,V}, AbstractDictionary{T,V}}`.
 
 To make the interfaces more compatible one *could* define the pirate method `Base.Dict(inds, vals) = Dict(zip(inds, vals))`.
 But instead `DictTools` defines `construct(::Type{T<:_AbstractDict}, inds, vals)` which provides a common interface for
-construction.
-
-In general, it is often not worth the trouble to support both `Dict` and `Dictionary` with a single interface.
-But, sometimes it is, and these tools can be useful.
+construction. The latter is less convenient, but is not piracy.
 
 ### Exported functions and objects
 
-docstrings may be more up to date.
+docstrings may be more up to date than what appears below.
 
 * `_AbstractDict{T,V}`
 
@@ -38,7 +37,7 @@ docstrings may be more up to date.
    Here `_` indicates not a private identifier, but rather differentiates from `AbstractDict`.
 * `_Dict{T,V}`
 
-    Either a `Dict` or a `Dictionary`. A union type
+   Either a `Dict` or a `Dictionary`. A union type
 
 * `count_map([::Type{T}=Dictionary], itr)`
 
@@ -49,27 +48,31 @@ docstrings may be more up to date.
     integers and that `itr` of indetermiate length is first collected
     internally.
 
-
-*  `add_counts!(dict::_AbstractDict{<:Any,V}, itr, ncounts=one(V)) where V`
+* `add_counts!(dict::_AbstractDict{<:Any,V}, itr, ncounts=one(V)) where V`
 
     Add `ncounts` counts to `dict` for each key in `itr`. If `ncounts` is ommited,
     add one count for each key.
 
-*  `update!(dict::Union{Dict,Dictionary}, _key, func, default)`
+* `update!(dict::Union{Dict,Dictionary}, _key, func, default)`
 
     If `dict` has key `_key`, replace the value by the result of calling `func` on the value.
     Otherwise insert `default` for `_key`.
 
     This function may work if `dict` is some other `_AbstractDict`.
 
-In addition to dictionaries, `update!` and `add_counts!` also accept (some) `AbstractVector` types
+    In addition to dictionaries, `update!` and `add_counts!` also accept (some) `AbstractVector` types
 
-*  `update_map(::Type{T}=Dictionary, _keys, func, default)`
+* `update_map(::Type{T}=Dictionary, _keys, func, default)`
 
     Like `count_map`, but instead of incrementing an existing value by one, it is replaced
     by the result of calling `func` on it. Furthermore, the default is `default` rather than `1`.
 
-*  `DictTools.normalize(dict)`
+* `DictTools.normalize(dict)`
 
     `dict` is a dictionary of counts. The output is a dictionary with the same keys, and counts normalized to a probability distribution.
 
+* Specialized method for `Dictionary` for the [ZChop.jl](https://github.com/jlapeyre/ZChop.jl) package.
+
+* `construct` to construct a `Dict` and `Dictionary` with one API
+
+* `_convert` to convert a sparse vector represented by an `_AbstractDict` to a `Vector`.

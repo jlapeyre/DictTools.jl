@@ -285,7 +285,9 @@ end
 _convert(::Type{Vector}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V} =
     _convert(Vector{V}, d, neutral_element)
 
+ZChop._copy(d::Dictionary{<:Any, <:Number}) = empty(d)
 
+# The fallback method for zchop(::Dictionary) is very slow. This is very fast.
 function ZChop.applyf!(func, dict::Dictionary, args...; kwargs...)
     ZChop.applyf!(func, dict.values, args...; kwargs...)
     return dict
