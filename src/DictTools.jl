@@ -15,6 +15,8 @@ module DictTools
 export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, normalize, _convert,
     construct
 
+export combine_values!, map_keys!, map_keys
+
 import Dictionaries
 using Dictionaries: AbstractDictionary, Dictionary, gettoken, gettokenvalue, settokenvalue!
 import ZChop
@@ -201,7 +203,6 @@ by the result of calling `func` on it. Furthermore, the default is `default` rat
 update_map(::Type{DictT}, _keys, func::F, default) where {F, DictT} =
     update!(DictT{typeof(first(_keys)), typeof(default)}(), _keys, func, default)
 
-
 """
     count_map([::Type{T}=_AbstractDict], itr)
 
@@ -230,6 +231,57 @@ end
 # counts above. This should not be the case.
 add_counts!(counter::_AbstractDictOrVector{V}, itr) where {V} =
     update!(counter, itr, v -> (v + one(V))::V, one(V))
+
+# TODO: Implement for Dict
+"""
+    combine_values!(dest::Dictionary, combine_func, _key, val, defaultval=val)
+
+If `dest` contains `_key`, replace the corresponding value `old_val` with `combine_func(val, old_val)`.
+Otherwise, set the value for `_key` to `defaultval`.
+"""
+function combine_values!(dest::Dictionary{K, V}, combine_func::F, _key::K, val, defaultval=val) where {K, V, F}
+    (hasval, token) = gettoken(dest, _key)
+    if hasval
+        settokenvalue!(dest, token, combine_func(val, gettokenvalue(dest, token)))
+    else
+        insert!(dest, _key, defaultval)
+    end
+    return dest
+end
+
+"""
+    map_keys!(dest::Dictionary, src::Dictionary, keymap_func, combine_func = +)
+
+This is the same as `map_keys` except that the destination `dest` is passed as input. Existing values
+in `dest` will be combined with `combine_func`. However `dest` is typically empty when passed to `map_keys!`.
+"""
+function map_keys!(dest::Dictionary{KD, VD}, src::Dictionary{KS, VS}, keymap_func::FK, combine_func::FC = +) where {KD,VD,KS,VS,FK,FC}
+    for (k, v) in pairs(src)
+        mapped_key = keymap_func(k)
+        combine_values!(dest, combine_func, mapped_key, v)
+    end
+    return dest
+end
+
+"""
+    map_keys(src::Dictionary, keymap_func, combine_func = +)
+
+Return a `Dictionary` whose keys are the image of `keys(src)` under `keymap_func` and whose values
+are created by accumulating with `combine_func` the values from the preimage of each key in the image of `keymap_func`.
+
+For example, suppose `combine_func` is `+`, and `keymap_func` is `iseven`, and the only even keys in `src` are in key-value pairs
+`(2, 9)`, `(4, 9)`, `(6, 9)`. Then the output `Dictionary` will contain the key-value pair `(true, 27)`.
+"""
+function map_keys(src::Dictionary{KS, VS}, keymap_func::FK, combine_func::FC = +) where {KS,VS,FK,FC}
+    KD = typeof(keymap_func(first(keys(src))))
+    VD = Base.promote_op(combine_func, VS, VS) # fragile. perhaps best we can do
+    dest = Dictionary{KD, VD}()
+    return map_keys!(dest, src, keymap_func, combine_func)
+end
+
+###
+### normalize, normalize!
+###
 
 # TODO: container::Dictionary is much slower than it should be.
 """
@@ -307,6 +359,19 @@ _convert(::Type{Vector}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where
     _convert(Vector{V}, d, neutral_element)
 
 ZChop._copy(d::Dictionary{<:Any, <:Number}) = empty(d)
+
+"""
+    zchop(d::Dictionary, args...)
+    zchop!(d::Dictionary, args...)
+    nchop(d::Dictionary, args...; kwargs...)
+    nchop!(d::Dictionary, args...; kwargs...)
+
+Apply `zchop`, `zchop!`, `nchop`, `nchop!` to each value of `d`. They keys
+are not altered.
+"""
+ZChop.zchop
+
+import ZChop: zchop, zchop!, nchop!, nchop
 
 # The fallback method for zchop(::Dictionary) is very slow. This is very fast.
 function ZChop.applyf!(func, dict::Dictionary, args...; kwargs...)
