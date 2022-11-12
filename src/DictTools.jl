@@ -15,7 +15,9 @@ module DictTools
 export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, normalize, _convert,
     construct
 
-export combine_values!, map_keys!, map_keys
+export combine_values!, map_keys!, map_keys, collect_sparse
+
+export SparseArray, AbstractSparseArray, SparseVector
 
 import Dictionaries
 using Dictionaries: AbstractDictionary, Dictionary, gettoken, gettokenvalue, settokenvalue!
@@ -249,13 +251,21 @@ function combine_values!(dest::Dictionary{K, V}, combine_func::F, _key::K, val, 
     return dest
 end
 
+function combine_values!(dest::AbstractVector{V}, combine_func::F, _key::Int, val, unused_defaultval=nothing) where {V, F}
+    @boundscheck checkbounds(dest, _key)
+    @inbounds dest[_key] = combine_func(val, dest[_key])
+    return dest
+end
+
 """
     map_keys!(dest::Dictionary, src::Dictionary, keymap_func, combine_func = +)
 
 This is the same as `map_keys` except that the destination `dest` is passed as input. Existing values
 in `dest` will be combined with `combine_func`. However `dest` is typically empty when passed to `map_keys!`.
 """
-function map_keys!(dest::Dictionary{KD, VD}, src::Dictionary{KS, VS}, keymap_func::FK, combine_func::FC = +) where {KD,VD,KS,VS,FK,FC}
+function map_keys!(dest, src, keymap_func::FK, combine_func::FC = +) where {FK,FC}
+#function map_keys!(dest::Dictionary, src::Dictionary, keymap_func::FK, combine_func::FC = +) where {FK,FC}
+#function map_keys!(dest::Dictionary{KD, VD}, src::Dictionary{KS, VS}, keymap_func::FK, combine_func::FC = +) where {KD,VD,KS,VS,FK,FC}
     for (k, v) in pairs(src)
         mapped_key = keymap_func(k)
         combine_values!(dest, combine_func, mapped_key, v)
@@ -263,14 +273,23 @@ function map_keys!(dest::Dictionary{KD, VD}, src::Dictionary{KS, VS}, keymap_fun
     return dest
 end
 
-"""
-    map_keys(src::Dictionary, keymap_func, combine_func = +)
 
-Return a `Dictionary` whose keys are the image of `keys(src)` under `keymap_func` and whose values
+# TODO: Implement for Array. Probably generate all keys in an array, then do the combination of values
+# Can also get the max val and use this to allocate just one array
+# The performance difference is often not great
+"""
+    map_keys(dict::Dictionary, keymap_func, combine_func = +)
+
+
+Return a `Dictionary` whose keys are the image of `keys(dict)` under `keymap_func` and whose values
 are created by accumulating with `combine_func` the values from the preimage of each key in the image of `keymap_func`.
 
-For example, suppose `combine_func` is `+`, and `keymap_func` is `iseven`, and the only even keys in `src` are in key-value pairs
+For example, suppose `combine_func` is `+`, and `keymap_func` is `iseven`, and the only even keys in `dict` are in key-value pairs
 `(2, 9)`, `(4, 9)`, `(6, 9)`. Then the output `Dictionary` will contain the key-value pair `(true, 27)`.
+
+`map_keys` is useful for computing a marginal probability distribution.
+If `dict` represents counts or a probability distribution, and `combine_func` is `+` and `keymap_func` is many-to-one for
+some keys, then `map_keys` effects marginalization of the distribution.
 """
 function map_keys(src::Dictionary{KS, VS}, keymap_func::FK, combine_func::FC = +) where {KS,VS,FK,FC}
     KD = typeof(keymap_func(first(keys(src))))
@@ -340,23 +359,84 @@ For example if `valtype(container)` is `Int`, an `InexactError` will be thrown.
 normalize!(container) = normalize!(container, container)
 
 """
-    _convert(::Type{<:Vector}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V}
+    collect_sparse(dict::Dictionary{K,V}; transform=identity, neutral_element=Val(zero(V)),
+                                max_ind::Union{Nothing, Int}=nothing) where {K, V}
 
-Convert `d` to a `Vector`. Missing keys in `d` are set to `neutral_element` in the returned vector.
+Convert `dict` representing a sparse vector to a dense `Vector`.
 
-This essentially converts a sparse representation to a dense representation.
+Missing keys in `dict` are set to `neutral_element` in the returned vector. `transform_key` transforms keys of type
+`K` to type `Int`, so that they are valid indexes for `Vector`.
+
+`max_ind`, if not equal to `nothing`, is the length of the output `Vector`, this must be large enough for all of they keys
+in `dict`. If `max_ind` is `nothing`, then the length will be computed. This will cost of some additional allocation
+if `transform` is not identity.
 """
-function _convert(::Type{VT}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V, VT<:Vector}
-    vec = VT(undef, maximum(keys(d)))
-    fill!(vec, neutral_element)
-    for (k, v) in pairs(d)
-        vec[k] = v
+function collect_sparse(dict::Dictionary{K, V}; transform::F = identity, neutral_element=Val(zero(V)),
+                        max_ind=nothing
+                        ) where {K, V, F}
+    max_ind === nothing && return _collect_sparse(dict, transform, neutral_element)
+    return _collect_sparse(max_ind, dict, transform, neutral_element)
+end
+
+# if transform is identity, we don't need to store transformed keys to avoid transforming twice
+function _collect_sparse(dict::Dictionary{K, V}, ::typeof(identity), ::Val{neutral_element}=Val(zero(V))) where {K, V, neutral_element}
+    ks = dict.indices.values
+    (min_ind, max_ind) = extrema(ks)
+    min_ind < 0 && throw(DomainError(min_ind, "Invalid index for Vector."))
+    return _make_dense_vector(max_ind, identity, ks, dict.values, Val(neutral_element))
+end
+
+# transform_key is not identity and we don't know max_ind. So we compute it. And assume transforming is costly, so we only do it
+# once and store the results.
+function _collect_sparse(dict::Dictionary{K, V}, transform_key::F = identity, ::Val{neutral_element}=Val(zero(V))) where {K, V, F, neutral_element}
+    ks = dict.indices.values
+    int_inds = _get_int_inds(ks, transform_key)
+    (min_ind, max_ind) = extrema(int_inds)
+    min_ind < 0 && throw(DomainError(min_ind, "Invalid index for Vector."))
+    return _make_dense_vector(max_ind, int_inds, dict.values, Val(neutral_element))
+end
+
+# Transform the dictionary keys to Vector indices
+function _get_int_inds(ks, transform_key_func::F) where {F}
+    int_inds = Vector{Int}(undef, length(ks))
+    @inbounds for i in eachindex(ks)
+        int_inds[i] = transform_key_func(ks[i])
+    end
+    return int_inds
+end
+
+function _make_dense_vector(max_ind::Int, int_inds::Vector, vals, ::Val{neutral_element}) where {neutral_element}
+    return _fill_dense_vector!(fill(neutral_element, max_ind), int_inds, vals)
+end
+
+function _fill_dense_vector!(vec, int_inds, vals)
+    for i in eachindex(int_inds)
+        @inbounds vec[int_inds[i]] = vals[i]
     end
     return vec
 end
 
-_convert(::Type{Vector}, d::_AbstractDict{Int,V}, neutral_element=zero(V)) where {V} =
-    _convert(Vector{V}, d, neutral_element)
+###
+
+function _collect_sparse(max_ind::Int, dict::Dictionary{K, V}, transform_key::F = identity, ::Val{neutral_element}=Val(zero(V))) where {K, V, F, neutral_element}
+    ks = dict.indices.values
+    return _make_dense_vector(max_ind, transform_key, ks, dict.values, Val(neutral_element))
+end
+
+function _make_dense_vector(max_ind::Int, transform_key::F, ks, vals, ::Val{neutral_element}) where {neutral_element, F}
+    vec = fill(neutral_element, max_ind)
+    return _fill_dense_vector!(vec, ks, vals, transform_key)
+end
+
+# Don't use @inbounds for vec[ind] because the size of vec was set via user input, which may be wrong
+function _fill_dense_vector!(vec, ks, vals, transform_key::F) where {F}
+    for i in eachindex(vals)
+        @inbounds ind = transform_key(ks[i])
+        @inbounds val = vals[i]
+        vec[ind] = val
+    end
+    return vec
+end
 
 ZChop._copy(d::Dictionary{<:Any, <:Number}) = empty(d)
 
@@ -378,5 +458,7 @@ function ZChop.applyf!(func, dict::Dictionary, args...; kwargs...)
     ZChop.applyf!(func, dict.values, args...; kwargs...)
     return dict
 end
+
+include("dok.jl")
 
 end # module DictTools
