@@ -17,7 +17,7 @@ export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_co
 
 export combine_values!, map_keys!, map_keys, collect_sparse
 
-export SparseArray, AbstractSparseArray, SparseVector
+export SparseArray, AbstractSparseArray, SparseVector, nnz, neutral_element
 
 import Dictionaries
 using Dictionaries: AbstractDictionary, Dictionary, gettoken, gettokenvalue, settokenvalue!
@@ -117,7 +117,7 @@ For `Dict` call `empty`. For `AbstractVector` and `Dictionary` call similar. The
 `AbstractVector` must be `Int.
 """
 empty_or_similar(d::AbstractDict, ::Type{KeyT}, ::Type{ValT}) where {KeyT, ValT} = empty(d, KeyT, ValT)
-empty_or_similar(d::AbstractDictionary{KeyT, ValT}, ::Type{KeyT}, ::Type{ValT}) where {KeyT, ValT} = similar(d)
+empty_or_similar(d::AbstractDictionary{KeyT}, ::Type{KeyT}, ::Type{ValT}) where {KeyT, ValT} = similar(d, ValT)
 empty_or_similar(d::AbstractVector, ::Type{Int}, ::Type{ValT}) where {ValT} = similar(d, ValT)
 
 # Maybe don't need to use this. Prefer using values at call site ?
