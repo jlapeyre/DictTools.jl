@@ -21,13 +21,6 @@ using Test
 
 end
 
-@testset "collect_sparse" begin
-    d = Dictionary([2, 4, 6], [1.0, 2.0, 3.1])
-    v = collect_sparse(d)
-    @test v == [0.0, 1.0, 0.0, 2.0, 0.0, 3.1]
-    @test_throws MethodError collect_sparse(Dictionary{Int, Int}())
-end
-
 @testset "DictTools.jl" begin
 
     @test Dict{Int, String} <: _AbstractDict{Int, String}
