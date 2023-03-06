@@ -9,7 +9,11 @@ using Test
     d = Dictionary([2, 4, 6], [1.0, 2.0, 3.1])
     v = collect_sparse(d)
     @test v == [0.0, 1.0, 0.0, 2.0, 0.0, 3.1]
-    @test_throws MethodError collect_sparse(Dictionary{Int, Int}())
+    if VERSION < v"1.8-"
+        @test_throws ArgumentError collect_sparse(Dictionary{Int, Int}())
+    else
+        @test_throws MethodError collect_sparse(Dictionary{Int, Int}())
+    end
     v = collect_sparse(d; neutral_element=Val(7.2))
     @test v == [7.2, 1.0, 7.2, 2.0, 7.2, 3.1]
     v = collect_sparse(d; transform = x -> x + 1)
