@@ -226,15 +226,14 @@ update_map(::Type{DictT}, _keys, func::F, default,
 """
     count_map([::Type{T}=Dictionary], itr, filt = x -> true)
 
-Return a dictionary of type `T` whose keys are elements of `itr`
-and whose values count how many times each occurs. Only elements of `itr`
-for which `filt` returns `true` are counted.
+Return a dictionary of type `T` whose keys are elements of `itr` and whose values count
+how many times each occurs. Only elements of `itr` for which `filt` returns `true` are
+counted.
 
-`count_map` is tested for `T` being either `Dict` or `Dictionary`.
+`count_map` has been tested for `T` being either `Dict` or `Dictionary`.
 
-`StatsBase.countmap` differs in that it has an optimization for
-integers and that `itr` of indetermiate length is first collected
-internally.
+`StatsBase.countmap` differs in that it has an optimization for integers and that `itr` of
+indetermiate length is first collected internally.
 """
 count_map(::Type{DictT}, itr, filt::F2 = _TRUE_FUNC) where {DictT, F2} = update_map(DictT, itr, v -> (v+1), 1, filt)
 #count_map(args...) = update_map(args..., v -> (v + 1), 1)

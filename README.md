@@ -39,14 +39,16 @@ docstrings may be more up to date than what appears below.
 
    Either a `Dict` or a `Dictionary`. A union type
 
-* `count_map([::Type{T}=Dictionary], itr)`
+* `count_map([::Type{T}=Dictionary], itr, filt = x -> true)`
 
-    Return a dictionary of type `T` whose keys are elements of `itr`
-    and whose values count how many times each occurs.
+   Return a dictionary of type `T` whose keys are elements of `itr` and whose values count
+   how many times each occurs. Only elements of `itr` for which `filt` returns `true` are
+   counted.
 
-    `StatsBase.countmap` differs in that it has an optimization for
-    integers and that `itr` of indetermiate length is first collected
-    internally.
+   `count_map` has been tested for `T` being either `Dict` or `Dictionary`.
+
+   `StatsBase.countmap` differs in that it has an optimization for integers and that `itr` of
+   indetermiate length is first collected internally.
 
 * `add_counts!(dict::_AbstractDict{<:Any,V}, itr, ncounts=one(V)) where V`
 
