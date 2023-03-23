@@ -31,14 +31,6 @@ construction. The latter is less convenient, but is not piracy.
 
 docstrings may be more up to date than what appears below.
 
-* `_AbstractDict{T,V}`
-
-   Either an `AbstractDict` or an `AbstractDictionary`. A union type.
-   Here `_` indicates not a private identifier, but rather differentiates from `AbstractDict`.
-* `_Dict{T,V}`
-
-   Either a `Dict` or a `Dictionary`. A union type
-
 * `count_map([::Type{T}=Dictionary], itr, filt = x -> true)`
 
    Return a dictionary of type `T` whose keys are elements of `itr` and whose values count
@@ -54,6 +46,14 @@ docstrings may be more up to date than what appears below.
 
     Add `ncounts` counts to `dict` for each key in `itr`. If `ncounts` is ommited,
     add one count for each key.
+
+* `_AbstractDict{T,V}`
+
+   Either an `AbstractDict` or an `AbstractDictionary`. A union type.
+   Here `_` indicates not a private identifier, but rather differentiates from `AbstractDict`.
+* `_Dict{T,V}`
+
+   Either a `Dict` or a `Dictionary`. A union type
 
 * `update!(dict::Union{Dict,Dictionary}, _key, func, default)`
 
