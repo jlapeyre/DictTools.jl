@@ -23,6 +23,9 @@ import Dictionaries
 using Dictionaries: AbstractDictionary, Dictionary, gettoken, gettokenvalue, settokenvalue!
 import ZChop
 
+
+const _TRUE_FUNC = _ -> true
+
 # Add a layer to handle both kinds of dictionaries
 
 """
@@ -136,7 +139,7 @@ Otherwise insert `default` for `_key`.
 
 This function supports some subtypes of `_AbstractDict`.
 """
-@inline function update!(dict::AbstractDictionary{T, V}, _key::T, func::F, default) where {F, T, V}
+@inline function _update!(dict::AbstractDictionary{T, V}, _key::T, func::F, default) where {F, T, V}
     (hasval, token) = gettoken(dict, _key)
     if hasval
         settokenvalue!(dict, token, func(gettokenvalue(dict, token)))
@@ -146,7 +149,7 @@ This function supports some subtypes of `_AbstractDict`.
 end
 
 # Stolen from StatsBase. This is faster than naive method
-@inline function update!(dict::Dict{T, V}, _key::T, func::F, default) where {F, T, V}
+@inline function _update!(dict::Dict{T, V}, _key::T, func::F, default) where {F, T, V}
     index = Base.ht_keyindex2!(dict, _key)
     if index > 0
         @inbounds dict.vals[index] = func(dict.vals[index])
@@ -156,7 +159,7 @@ end
 end
 
 # This is a bit slower than both specialized methods
-@inline function update!(dict::_AbstractDict{T,V}, _key::T, func::F, default) where {F, T, V}
+@inline function _update!(dict::_AbstractDict{T,V}, _key::T, func::F, default) where {F, T, V}
     if haskey(dict, _key)
         dict[_key] = func(get(dict, _key))
     else
@@ -164,8 +167,16 @@ end
     end
 end
 
-function update!(dict::_AbstractDict{T}, _keys, func::F, default) where {F, T}
+@inline function update!(dict::_AbstractDict{T,V}, _key::T, func::F, default,
+                         filt::F2 = _TRUE_FUNC) where {F, T, V, F2}
+    filt(_key) || return
+    _update!(dict, _key, func, default)
+end
+
+function update!(dict::_AbstractDict{T}, _keys, func::F, default,
+                 filt::F2 = _TRUE_FUNC) where {F, T, F2}
     for _key::T in _keys
+        filt(_key) || continue
         update!(dict, _key, func, default)
     end
     return dict
@@ -177,7 +188,9 @@ end
 Update the value of `v` at index `_key` by calling `func` on it. That is,
 set `v[_key] = func(v[_key])`.
 """
-function update!(v::AbstractVector{V}, _key::Int, func::F, _ignore=nothing) where {F, V}
+function update!(v::AbstractVector{V}, _key::Int, func::F, _ignore=nothing,
+                 filt::F2 = _TRUE_FUNC) where {F, V, F2}
+    filt(_key) || return
     @boundscheck checkbounds(v, _key)
     @inbounds v[_key] = func(v[_key])
 end
@@ -187,14 +200,18 @@ end
 
 Call `update!(v, k, func)` for each `k::Int` in iterable `_keys`.
 """
-function update!(v::AbstractVector{V}, _keys, func::F, _ignore=nothing) where {F, V}
+function update!(v::AbstractVector{V}, _keys, func::F, _ignore=nothing,
+                 filt::F2 = _TRUE_FUNC) where {F, V, F2}
     for k::Int in _keys
+        filt(k) || continue
         update!(v, k, func, _ignore)
     end
     return v
 end
 
-update_map(_keys, func::F, default) where F = update_map(Dictionary, _keys, func, default)
+function update_map(_keys, func::F, default, filt::F2 = _TRUE_FUNC) where {F, F2}
+    update_map(Dictionary, _keys, func, default, filt)
+end
 
 """
     update_map(::Type{T}=_AbstractDict, _keys, func, default)
@@ -202,20 +219,28 @@ update_map(_keys, func::F, default) where F = update_map(Dictionary, _keys, func
 Like `count_map`, but instead of incrementing an existing value by one, it is replaced
 by the result of calling `func` on it. Furthermore, the default is `default` rather than `1`.
 """
-update_map(::Type{DictT}, _keys, func::F, default) where {F, DictT} =
-    update!(DictT{typeof(first(_keys)), typeof(default)}(), _keys, func, default)
+update_map(::Type{DictT}, _keys, func::F, default,
+           filt::F2 = _TRUE_FUNC) where {F, DictT, F2} =
+    update!(DictT{typeof(first(_keys)), typeof(default)}(), _keys, func, default, filt)
 
 """
-    count_map([::Type{T}=_AbstractDict], itr)
+    count_map([::Type{T}=Dictionary], itr, filt = x -> true)
 
 Return a dictionary of type `T` whose keys are elements of `itr`
-and whose values count how many times each occurs.
+and whose values count how many times each occurs. Only elements of `itr`
+for which `filt` returns `true` are counted.
+
+`count_map` is tested for `T` being either `Dict` or `Dictionary`.
 
 `StatsBase.countmap` differs in that it has an optimization for
 integers and that `itr` of indetermiate length is first collected
 internally.
 """
-count_map(args...) = update_map(args..., v -> (v + 1), 1)
+count_map(::Type{DictT}, itr, filt::F2 = _TRUE_FUNC) where {DictT, F2} = update_map(DictT, itr, v -> (v+1), 1, filt)
+#count_map(args...) = update_map(args..., v -> (v + 1), 1)
+
+count_map(itr, filt::F2 = _TRUE_FUNC) where {F2} = count_map(Dictionary, itr, filt)
+
 
 """
     add_counts!(counter::Union{_AbstractDict{<:Any,V}, AbstractVector{V}}, itr, ncounts=one(V)) where V

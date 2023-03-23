@@ -45,6 +45,10 @@ end
         @test cm == DictTools.construct(DT, [0, 1, 2], [3, 3, 2])
         add_counts!(cm, [0, 1], 3)
         @test cm == DictTools.construct(DT, [0, 1, 2], [6, 6, 2])
+
+        cm2 = count_map(DT, items, iseven)
+        exp_cm2 = DictTools.construct(DT, [0, 2], [2, 1])
+        @test cm2 == exp_cm2
     end
 
     ks = ["a", "b", "d"]
