@@ -12,7 +12,7 @@ Applications are `count_map`, `update_map`, `update!`.
 """
 module DictTools
 
-export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, normalize, _convert,
+export count_map, add_counts!, update!, update_map, baretype, baretypeof, add_counts!, normalize,
     construct
 
 export combine_values!, map_keys!, map_keys, collect_sparse
@@ -161,7 +161,7 @@ end
 # This is a bit slower than both specialized methods
 @inline function _update!(dict::_AbstractDict{T,V}, _key::T, func::F, default) where {F, T, V}
     if haskey(dict, _key)
-        dict[_key] = func(get(dict, _key))
+        dict[_key] = func(dict[_key])
     else
         dict[_key] = default
     end

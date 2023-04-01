@@ -4,6 +4,8 @@ using Dictionaries: Dictionary, IndexError
 
 using Test
 
+include("test_aqua.jl")
+include("test_jet.jl")
 
 @testset "collect_sparse, map_keys" begin
     d = Dictionary([2, 4, 6], [1.0, 2.0, 3.1])
