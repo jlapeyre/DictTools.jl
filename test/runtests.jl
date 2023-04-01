@@ -4,8 +4,10 @@ using Dictionaries: Dictionary, IndexError
 
 using Test
 
-include("test_aqua.jl")
-include("test_jet.jl")
+@static if Base.VERSION >= v"1.7"
+    include("test_jet.jl")
+    include("test_aqua.jl")
+end
 
 @testset "collect_sparse, map_keys" begin
     d = Dictionary([2, 4, 6], [1.0, 2.0, 3.1])
