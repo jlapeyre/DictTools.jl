@@ -20,7 +20,7 @@ function (::MayThrowIsOk)(report_type::Type{<:InferenceErrorReport}, @nospeciali
 end
 
 @testset "jet" begin
-    if get(ENV,"MENUMS_JET_TEST","")=="true"
+    if get(ENV,"DICTTOOLS_JET_TEST","")=="true"
         rep = report_package(
             "DictTools";
             report_pass=MayThrowIsOk(), # TODO have something more fine grained than a generic "do not care about thrown errors"
