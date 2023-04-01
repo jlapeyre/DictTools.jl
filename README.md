@@ -81,4 +81,21 @@ docstrings may be more up to date than what appears below.
 
 * `construct` to construct a `Dict` and `Dictionary` with one API
 
-* `_convert` to convert a sparse vector represented by an `_AbstractDict` to a `Vector`.
+
+* `map_keys`, `map_keys!`
+     map_keys(dict::Dictionary, keymap_func, combine_func = +)
+
+
+    Return a `Dictionary` whose keys are the image of `keys(dict)` under `keymap_func` and whose values
+    are created by accumulating with `combine_func` the values from the preimage of each key in the image of `keymap_func`.
+
+    For example, suppose `combine_func` is `+`, and `keymap_func` is `iseven`, and the only even keys in `dict` are in key-value pairs
+    `(2, 9)`, `(4, 9)`, `(6, 9)`. Then the output `Dictionary` will contain the key-value pair `(true, 27)`.
+
+    `map_keys` is useful for computing a marginal probability distribution.
+    If `dict` represents counts or a probability distribution, and `combine_func` is `+` and `keymap_func` is many-to-one for
+    some keys, then `map_keys` effects marginalization of the distribution.
+
+
+* `collect_sparse`
+    Convert `dict` representing a sparse vector to a dense `Vector`. See doc string
