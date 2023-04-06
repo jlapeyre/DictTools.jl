@@ -1,3 +1,5 @@
 using ReTestItems
+using DictTools
 
-runtests()
+runtests(DictTools)
+
