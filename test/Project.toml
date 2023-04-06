@@ -1,2 +1,4 @@
 [deps]
+Dictionaries = "85a47980-9c8c-11e8-2b9f-f7ca1fa99fb4"
 ReTestItems = "817f1d60-ba6b-4fd5-9520-3cf149f6a823"
+ZChop = "8603256b-76ad-53fe-b511-38a38e6437cd"
